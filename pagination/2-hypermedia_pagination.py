@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
 """
-Hypermedia pagination using a dataset of popular baby names.
+Deletion-resilient hypermedia pagination
 """
 
 import csv
 import math
-from typing import List, Tuple, Dict
-
-
-def index_range(page: int, page_size: int) -> Tuple[int, int]:
-    """
-    Calculate the start and end indexes for a given page.
-
-    Args:
-        page (int): current page number (1-indexed).
-        page_size (int): number of items per page.
-
-    Returns:
-        tuple[int, int]: (start_index, end_index) for pagination.
-    """
-    start = (page - 1) * page_size
-    end = page * page_size
-    return (start, end)
+from typing import List, Dict
 
 
 class Server:
@@ -31,6 +15,7 @@ class Server:
 
     def __init__(self):
         self.__dataset = None
+        self.__indexed_dataset = None
 
     def dataset(self) -> List[List]:
         """Cached dataset
@@ -40,50 +25,53 @@ class Server:
                 reader = csv.reader(f)
                 dataset = [row for row in reader]
             self.__dataset = dataset[1:]
+
         return self.__dataset
 
-    def get_page(self, page: int = 1, page_size: int = 10) -> List[List]:
+    def indexed_dataset(self) -> Dict[int, List]:
+        """Dataset indexed by sorting position, starting at 0
         """
-        Return the appropriate page of the dataset.
+        if self.__indexed_dataset is None:
+            dataset = self.dataset()
+            truncated_dataset = dataset[:1000]
+            self.__indexed_dataset = {
+                i: dataset[i] for i in range(len(dataset))
+            }
+        return self.__indexed_dataset
+
+    def get_hyper_index(self, index: int = None, page_size: int = 10) -> Dict:
+        """Get a page from the dataset with hypermedia pagination,
+        resilient to deletions.
 
         Args:
-            page (int): page number (must be > 0).
-            page_size (int): number of items per page (must be > 0).
+            index: The current start index of the return page
+            page_size: The number of items per page
 
         Returns:
-            List[List]: a list of rows corresponding to the page.
+            A dictionary containing pagination info and the page data
         """
-        assert isinstance(page, int) and page > 0
-        assert isinstance(page_size, int) and page_size > 0
+        assert index is not None and index >= 0 and index < len(self.dataset())
 
-        start, end = index_range(page, page_size)
-        dataset = self.dataset()
+        indexed_dataset = self.indexed_dataset()
+        data = []
+        current_index = index
 
-        if start >= len(dataset):
-            return []
+        # Collect data until we have enough items or reach the end
+        while len(data) < page_size and current_index < len(indexed_dataset):
+            if current_index in indexed_dataset:
+                data.append(indexed_dataset[current_index])
+            current_index += 1
 
-        return dataset[start:end]
-
-    def get_hyper(self, page: int = 1, page_size: int = 10) -> Dict:
-        """
-        Return a dictionary containing hypermedia pagination info.
-
-        Args:
-            page (int): current page number (must be > 0).
-            page_size (int): number of items per page (must be > 0).
-
-        Returns:
-            Dict: hypermedia pagination info
-        """
-        data = self.get_page(page, page_size)
-        dataset_len = len(self.dataset())
-        total_pages = math.ceil(dataset_len / page_size)
+        # Calculate next_index
+        next_index = (
+            current_index
+            if current_index < len(self.dataset())
+            else None
+        )
 
         return {
-            "page_size": len(data),
-            "page": page,
-            "data": data,
-            "next_page": page + 1 if page < total_pages else None,
-            "prev_page": page - 1 if page > 1 else None,
-            "total_pages": total_pages
+            'index': index,
+            'next_index': next_index,
+            'page_size': len(data),
+            'data': data
         }
