@@ -5,7 +5,17 @@ Script that provides some stats about Nginx logs stored in MongoDB.
 
 from pymongo import MongoClient
 
+
 def main():
+    """
+    Connects to the MongoDB `logs` database and prints statistics
+    about the Nginx logs stored in the `nginx` collection.
+
+    The function displays:
+      - The total number of log documents
+      - The number of documents for each HTTP method
+      - The number of GET requests with the path `/status`
+    """
     # Connect to MongoDB
     client = MongoClient('mongodb://localhost:27017/')
     db = client.logs
