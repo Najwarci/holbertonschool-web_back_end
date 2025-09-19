@@ -11,5 +11,4 @@ export function taskFirst() {
     let combination = 'But sometimes let';
     combination += getLast();
     return combination;
-  }
-  
+  }  
