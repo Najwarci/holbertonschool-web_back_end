@@ -7,7 +7,10 @@ export default function handleProfileSignup(firstName, lastName, fileName) {
     uploadPhoto(fileName),
   ]).then((results) =>
     results.map((res) => {
-      if (res.status === 'fulfilled') return res;
+      if (res.status === 'fulfilled') {
+        return res;
+      }
+      // Pour les promesses rejetées, mettre l'erreur dans 'value'
       return { status: 'rejected', value: res.reason };
     })
   );
